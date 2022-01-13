@@ -23,7 +23,7 @@ now = datetime.now()
 
 # Hyperparameters
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR ="logs/" + now.strftime("%Y%m%d-%H%M%S") + "/"
+LOG_DIR = os.path.join(ROOT_DIR , "logs/" + now.strftime("%Y%m%d-%H%M%S"))
 LOG_ITER = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCHSIZE = 4
@@ -34,8 +34,8 @@ LAMBDA = 10
 
 
 # Construct Data Pipeline
-data_dir_X = os.path.join(ROOT_DIR, 'dataset', 'photo_jpg')
-data_dir_Y = os.path.join(ROOT_DIR, 'dataset', 'monet_jpg')
+data_dir_X = os.path.join(Path(ROOT_DIR).parent, 'dataset', 'photo_jpg')
+data_dir_Y = os.path.join(Path(ROOT_DIR).parent, 'dataset', 'monet_jpg')
 transform = transforms.Compose([transforms.ToTensor()])
 
 #Helper Functions
@@ -64,11 +64,10 @@ optimizer_discriminator_X = optim.Adam(Discriminator_X.parameters(), lr=LEARNING
 optimizer_generator_YX = optim.Adam(Generator_YX.parameters(), lr=LEARNING_RATE)
 optimizer_discriminator_Y = optim.Adam(Discriminator_Y.parameters(), lr=LEARNING_RATE)
 
-writer = SummaryWriter(LOG_DIR)
-
 img_size = torch.empty(256, 256)
 
 def train():
+    writer = SummaryWriter(LOG_DIR)
     iteration = 0
     for epoch in range(MAX_EPOCH):
         Generator_XY.train()
