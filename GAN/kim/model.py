@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class ResidualBlock(nn.Module):
     def __init__(self, in_features):
         super(ResidualBlock, self).__init__()
@@ -36,7 +35,7 @@ class Generator(nn.Module):
         in_channels = 3
         for x in infos:
             if x.startswith('c7s1-'):
-                layers += [nn.ReflectionPad2d(in_channels),
+                layers += [nn.ReflectionPad2d(3),
                            nn.Conv2d(in_channels, int(x[5:]), kernel_size=7),
                            nn.InstanceNorm2d(int(x[5:])),
                            nn.ReLU(inplace=True)]
@@ -46,16 +45,17 @@ class Generator(nn.Module):
                 layers += [nn.Conv2d(in_channels, int(x[1:]), kernel_size=3, stride=2, padding=1),
                            nn.InstanceNorm2d(int(x[1:])),
                            nn.ReLU(inplace=True)]
-                in_channels = int(x[:1])
+                in_channels = int(x[1:])
 
             elif x.startswith('R'):
                 layers += [ResidualBlock(in_channels)]
 
             elif x.startswith('u'):
-                layers += [nn.Conv2d(in_channels, int(x[1:]), kernel_size=3, stride=0.5),
+                layers += [nn.ConvTranspose2d(in_channels, int(x[1:]), kernel_size=3, stride=2, padding=1, output_padding=1),
                            nn.InstanceNorm2d(int(x[1:])),
                            nn.ReLU(inplace=True)]
-                in_channels = int(x[:1])
+                in_channels = int(x[1:])
+
         return nn.Sequential(*layers)
 
 
@@ -65,8 +65,7 @@ class Discriminator(nn.Module):
         self.features = self.create_layers()
 
     def forward(self, x):
-        x = self.features()
-        return x
+        return self.features(x)
 
     def create_layers(self):
         infos = [64, 128, 256, 512]
@@ -74,9 +73,13 @@ class Discriminator(nn.Module):
         in_channels = 3
         for x in infos:
             if x == 64:
-                layers+=[nn.Conv2d(in_channels, x, kernel_size=4, stride=2), nn.InstanceNorm2d(x), nn.LeakyReLU(0.2, inplace=True)]
+                layers += [nn.Conv2d(in_channels, x, kernel_size=4, stride=2),
+                           nn.InstanceNorm2d(x), 
+                           nn.LeakyReLU(0.2, inplace=True)]
                 in_channels = x
             else:
-                layers+=[nn.Conv2d(in_channels, x, kernel_size=4, stride=2), nn.LeakyReLU(0.2, inplace=True)]
+                layers += [nn.Conv2d(in_channels, x, kernel_size=4, stride=2), 
+                           nn.LeakyReLU(0.2, inplace=True)]
                 in_channels = x
+        layers += [nn.Conv2d(in_channels, 1, 4, padding=1)]
         return nn.Sequential(*layers)
