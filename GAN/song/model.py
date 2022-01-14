@@ -39,8 +39,7 @@ class Gen(nn.Module):
                          nn.ReLU(inplace=True)])
         model.extend([nn.ReflectionPad2d(3),
                       nn.Conv2d(64, 3, 7),
-                      nn.InstanceNorm2d(3),
-                      nn.ReLU(inplace=True)])
+                      nn.Tanh()])
         
         self.model = nn.Sequential(*model)
         
@@ -61,7 +60,8 @@ class Dis(nn.Module):
                           nn.Conv2d(64*(2**i), 128*(2**i), 4, stride=2),
                           nn.InstanceNorm2d(128*(2**i)),
                           nn.LeakyReLU(0.2, inplace=True)])
-        model.append(nn.Conv2d(512, 1, 4, padding=1))
+        model.extend([nn.ZeroPad2d((1, 0, 1, 0)),
+                      nn.Conv2d(512, 1, 4, padding=1)])
 
         self.model = nn.Sequential(*model)
     
