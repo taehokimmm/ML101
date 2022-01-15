@@ -6,9 +6,9 @@ from PIL import Image
 import model
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-relayPATH = "./GAN/checkpoint/" + os.listdir("./GAN/checkpoint")[-1]
-testInputDIR = "./GAN/test_input"
-testOutputDIR = "./GAN/test_output"
+relayPATH = "./GAN/song/checkpoints/" + os.listdir("./GAN/song/checkpoints")[-1]
+testInputDIR = "./GAN/song/test_input"
+testOutputDIR = "./GAN/song/test_output"
 
 with torch.no_grad():
     checkpoint = torch.load(relayPATH)
