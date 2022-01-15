@@ -2,3 +2,4 @@ GAN/kim/__pycache__/
 GAN/kim/logs/
 GAN/song/__pycache__/
 GAN/song/checkpoints/
+.DS_Store

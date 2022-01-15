@@ -1,3 +1,5 @@
+from datetime import datetime
+from pathlib import Path
 import os
 from PIL.Image import Image
 import torch
@@ -5,6 +7,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms, datasets, utils
 import torch.optim as optim
 import torch.nn.functional as F
+import itertools
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,15 +19,14 @@ from torch.utils.tensorboard import SummaryWriter
 torch.manual_seed(470)
 torch.cuda.manual_seed(470)
 
-from pathlib import Path
-from datetime import datetime
 
 now = datetime.now()
 
 # Hyperparameters
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR = os.path.join(ROOT_DIR , "logs/" + now.strftime("%Y%m%d-%H%M%S"))
+LOG_DIR = os.path.join(ROOT_DIR, "logs" + now.strftime("%Y%m%d-%H%M%S"))
 LOG_ITER = 100
+CKPT_DIR = os.path.join(root, 'checkpoints')
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCHSIZE = 4
 LEARNING_RATE = 0.002
@@ -38,7 +40,9 @@ data_dir_X = os.path.join(Path(ROOT_DIR).parent, 'dataset', 'photo_jpg')
 data_dir_Y = os.path.join(Path(ROOT_DIR).parent, 'dataset', 'monet_jpg')
 transform = transforms.Compose([transforms.ToTensor()])
 
-#Helper Functions
+# Helper Functions
+
+
 def imshow(img):
     img = img.numpy()
     plt.imshow(np.transpose(img, (1, 2, 0)))
@@ -51,7 +55,8 @@ def show():
 
 
 train_dataset = ImageDataset(data_dir_X, data_dir_Y, transform=transform)
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCHSIZE, shuffle=True, num_workers=2)
+train_dataloader = torch.utils.data.DataLoader(
+    train_dataset, batch_size=BATCHSIZE, shuffle=True, num_workers=2)
 
 Generator_XY = Generator()
 Discriminator_X = Discriminator()
@@ -59,16 +64,31 @@ Discriminator_X = Discriminator()
 Generator_YX = Generator()
 Discriminator_Y = Discriminator()
 
-optimizer_generator_XY = optim.Adam(Generator_XY.parameters(), lr=LEARNING_RATE)
-optimizer_discriminator_X = optim.Adam(Discriminator_X.parameters(), lr=LEARNING_RATE)
-optimizer_generator_YX = optim.Adam(Generator_YX.parameters(), lr=LEARNING_RATE)
-optimizer_discriminator_Y = optim.Adam(Discriminator_Y.parameters(), lr=LEARNING_RATE)
+optimizer_generator = optim.Adam(itertools.chain(
+    Generator_XY.parameters(), Generator_YX.parameters()), lr=LEARNING_RATE)
+optimizer_discriminator_X = optim.Adam(
+    Discriminator_X.parameters(), lr=LEARNING_RATE)
+optimizer_discriminator_Y = optim.Adam(
+    Discriminator_Y.parameters(), lr=LEARNING_RATE)
 
 img_size = torch.empty(256, 256)
+
 
 def train():
     writer = SummaryWriter(LOG_DIR)
     iteration = 0
+    ckpt_path = os.path.join(CKPT_DIR, 'lastest.pt')
+    if os.path.exists(ckpt_path):
+        ckpt = torch.load(ckpt_path)
+    try:
+        optimizer_discriminator_X.load_state_dict(ckpt['discriminator_X'])
+        optimizer_discriminator_Y.load_state_dict(ckpt['discriminator_Y'])
+        optimizer_generator.load_state_dict(ckpt['generator'])
+    except RuntimeError as e:
+        print('wrong checkpoint')
+    else:
+        print('checkpoint is loaded!')
+
     for epoch in range(MAX_EPOCH):
         Generator_XY.train()
         Generator_YX.train()
@@ -82,47 +102,56 @@ def train():
             X_to_Y = Generator_XY(input_X)
             Y_to_X = Generator_YX(input_Y)
 
-            # Adversarial Loss
+            # Train G
             MSELoss = torch.nn.MSELoss()
-            result_XYY = Discriminator_Y(X_to_Y)
-            result_YY = Discriminator_Y(input_Y)
-            result_YXX = Discriminator_X(Y_to_X)
-            result_XX = Discriminator_X(input_X)
+            result_XYY = Discriminator_Y(X_to_Y).detach()
+            result_YY = Discriminator_Y(input_Y).detach()
+            result_YXX = Discriminator_X(Y_to_X).detach()
+            result_XX = Discriminator_X(input_X).detach()
+            loss_GAN_G = (MSELoss(result_XYY, torch.ones_like(result_XYY).detach(
+            )) + MSELoss(result_YXX, torch.ones_like(result_YXX).detach())) / 2
 
-            loss_GAN_GX = MSELoss(result_XYY, torch.ones_like(result_XYY))
-            loss_GAN_DY = MSELoss(result_YY, torch.ones_like(result_YY)) + MSELoss(result_XYY, torch.zeros_like(result_XYY))
-            
-            loss_GAN_GY = MSELoss(result_YXX, torch.ones_like(result_YXX))
-            loss_GAN_DX = MSELoss(result_XX, torch.ones_like(result_XX)) + MSELoss(result_YXX, torch.zeros_like(result_YXX))
-
-            loss_GAN = loss_GAN_DX + loss_GAN_DY + loss_GAN_GX + loss_GAN_GY
             # Cycle Consistency Loss
             L1Norm = torch.nn.L1Loss()
-            loss_cyc = (L1Norm(Generator_YX(Y_to_X), input_X) + L1Norm(Generator_XY(Y_to_X), input_Y))*LAMBDA
+            loss_cyc = (L1Norm(Generator_YX(Y_to_X), input_X) +
+                        L1Norm(Generator_XY(Y_to_X), input_Y)) / 2 * LAMBDA
 
             # Identity Loss
-            loss_identity = (L1Norm(X_to_Y, input_Y) + L1Norm(Y_to_X, input_X))*0.5*LAMBDA
+            loss_identity = (L1Norm(X_to_Y, input_Y) +
+                             L1Norm(Y_to_X, input_X)) / 2 * LAMBDA
 
+            loss_G = loss_GAN_G + loss_cyc + loss_identity
+
+            optimizer_generator.zero_grad()
+            loss_G.backward(retain_graph=True)
+            optimizer_generator.step()
+
+            loss_DX = MSELoss(result_XX, torch.ones_like(
+                result_XX)) + MSELoss(result_YXX, torch.zeros_like(result_YXX))
 
             optimizer_discriminator_X.zero_grad()
-            optimizer_discriminator_Y.zero_grad()
-            optimizer_generator_XY.zero_grad()
-            optimizer_generator_YX.zero_grad()
-
-            loss_GAN.backward()
-            loss_cyc.backward()
-            loss_identity.backward()
-
+            loss_DX.backward(retain_graph=True)
             optimizer_discriminator_X.step()
+
+            loss_DY = MSELoss(result_YY, torch.ones_like(
+                result_YY)) + MSELoss(result_XYY, torch.zeros_like(result_XYY))
+            optimizer_discriminator_Y.zero_grad()
+            loss_DY.backward()
             optimizer_discriminator_Y.step()
-            optimizer_generator_XY.step()
-            optimizer_generator_YX.step()
+
+            loss = loss_G.item() + loss_DX.item() + loss_DY.item()
 
             if iteration % 20 == 0 and writer is not None:
-                writer.add_scalar('train_loss', loss.item(), iteration)
-                print('[epoch: {}, iteration: {}] train loss : {:4f}'.format(epoch+1, iteration, loss.item()))
-                
-        print('[epoch: {}] train loss : {:4f}'.format(epoch+1, loss.item()))
+                writer.add_scalar('train_loss', loss, iteration)
+                print('[epoch: {}, iteration: {}] train loss : {:4f}'.format(
+                    epoch+1, iteration, loss))
+
+            ckpt = {'discriminator_X': optimizer_discriminator_X.state_dict(),
+                    'discriminator_Y': optimizer_discriminator_Y.state_dict(),
+                    'generator': optimizer_generator.state_dict()}
+            torch.save(ckpt, ckpt_path)
+
+        print('[epoch: {}] train loss : {:4f}'.format(epoch+1, loss))
 
 
 if __name__ == '__main__':

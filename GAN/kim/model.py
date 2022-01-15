@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class ResidualBlock(nn.Module):
     def __init__(self, in_features):
         super(ResidualBlock, self).__init__()
@@ -74,11 +75,11 @@ class Discriminator(nn.Module):
         for x in infos:
             if x == 64:
                 layers += [nn.Conv2d(in_channels, x, kernel_size=4, stride=2),
-                           nn.InstanceNorm2d(x), 
+                           nn.InstanceNorm2d(x),
                            nn.LeakyReLU(0.2, inplace=True)]
                 in_channels = x
             else:
-                layers += [nn.Conv2d(in_channels, x, kernel_size=4, stride=2), 
+                layers += [nn.Conv2d(in_channels, x, kernel_size=4, stride=2),
                            nn.LeakyReLU(0.2, inplace=True)]
                 in_channels = x
         layers += [nn.Conv2d(in_channels, 1, 4, padding=1)]
