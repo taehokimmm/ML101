@@ -3,3 +3,5 @@ GAN/kim/logs/
 GAN/song/__pycache__/
 GAN/song/checkpoints/
 .DS_Store
+GAN/song/test_input/
+GAN/song/test_output/
