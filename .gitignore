@@ -2,3 +2,5 @@ GAN/kim/__pycache__/
 GAN/kim/logs/
 GAN/song/__pycache__/
 GAN/song/checkpoints/
+GAN/song/test_input/
+GAN/song/test_output/
