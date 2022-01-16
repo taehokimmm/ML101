@@ -4,11 +4,13 @@ from torch.utils.data import DataLoader
 import dataset, model, util
 import itertools
 import os
+from torch.utils.tensorboard import SummaryWriter
 import gc
 gc.collect()
 torch.cuda.empty_cache()
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+summary = SummaryWriter()
 batch_size = 1
 lr_init = 2e-4
 n_epoches = 200
@@ -65,7 +67,9 @@ for epoch in range(start_epoch, n_epoches):
     disM.train()
     disP.train()
     
-    for M_imgs, P_imgs in train_loader:
+    summary.add_scalar('lr_scheduler', lr_scheduler_Gen.get_last_lr()[0], epoch)
+    
+    for iter, (M_imgs, P_imgs) in enumerate(train_loader):
         torch.cuda.empty_cache()
         M_imgs = M_imgs.to(DEVICE)
         P_imgs = P_imgs.to(DEVICE)
@@ -122,19 +126,21 @@ for epoch in range(start_epoch, n_epoches):
         P_dis_loss.backward()
         opDisP.step()
         
+        if iter % 20 == 0 and summary is not None:
+            summary.add_scalar('Generator loss', gen_loss.item(), iter)
+            summary.add_scalars('Discriminator loss',
+                                {'DiscriminatorM loss' : M_dis_loss.item(),
+                                 'DiscriminatorP loss' : P_dis_loss.item()},
+                                iter)
+            print(f'[Epoch {epoch+1}/{n_epoches}, Iteraton {iter}]')
+            print(f'[Generator loss: {gen_loss.item()} | identity: {id_loss.item()} adversarial: {adv_loss.item()} cycle: {cyc_loss.item()}]')
+            print(f'[DiscriminatorM loss: {M_dis_loss.item()} | DiscriminatorP loss : {P_dis_loss.item()}]')
+        
         
     lr_scheduler_Gen.step()
     lr_scheduler_DisM.step()
     lr_scheduler_DisP.step()
     
-    print(f'[Epoch {epoch+1}/{n_epoches}]')
     for file in os.scandir("./GAN/song/checkpoints"):
         os.remove(file.path)
     util.save_checkpoint(epoch, [genM2P, genP2M, disM, disP], [opGen, opDisM, opDisP], "./GAN/song/checkpoints/model_epoch_{}.pt".format(epoch+1))
-    
-    if (epoch+1) % 20 == 0 or epoch == 0:
-        #test_real_M, test_real_P = next(iter(train_loader))
-        #util.sample_images(genM2P, genP2M, test_real_M, test_real_P, DEVICE)
-        
-        print(f'[Generator loss: {gen_loss.item()} | identity: {id_loss.item()} adversarial: {adv_loss.item()} cycle: {cyc_loss.item()}]')
-        print(f'[DiscriminatorM loss: {M_dis_loss.item()} | DiscriminatorP loss : {P_dis_loss.item()}')

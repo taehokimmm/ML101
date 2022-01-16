@@ -31,3 +31,12 @@ class imageDataset(Dataset):
         imageMonet = self.transforms(imageMonet)
         imagePhoto = self.transforms(imagePhoto)
         return imageMonet, imagePhoto
+
+
+if __name__ == "__main__":
+    monetDIR = "./GAN/dataset/monet_jpg"
+    photoDIR = "./GAN/dataset/photo_jpg"
+    train_dataset = imageDataset(monetDIR, photoDIR, 777)
+    print(train_dataset.data_photo)
+    #train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
+    
