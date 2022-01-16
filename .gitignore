@@ -1,6 +1,10 @@
 GAN/kim/__pycache__/
 GAN/kim/logs/
+GAN/kim/checkpoints/
+GAN/kim/input/
+GAN/kim/output/
 GAN/song/__pycache__/
 GAN/song/checkpoints/
+.DS_Store
 GAN/song/test_input/
 GAN/song/test_output/
