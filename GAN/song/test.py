@@ -1,43 +1,38 @@
 import torch
-import torchvision.transforms as transforms
 import os
-import numpy as np
-from PIL import Image
-import model
+from torchvision.utils import save_image
+from torch.utils.data import DataLoader
+import model, dataset
+import shutil
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-relayPATH = "./GAN/song/checkpoints/" + os.listdir("./GAN/song/checkpoints")[-1]
-testInputDIR = "./GAN/song/test_input"
+checkDIR = "./GAN/song/checkpoints"
+relayPATH = checkDIR + "/" + os.listdir(checkDIR)[-1]
+#testInputDIR = "./GAN/song/test_input"
+testInputDIR = "./GAN/dataset/photo_jpg"
 testOutputDIR = "./GAN/song/test_output"
+batch_size = 1
+
+
+for file in os.scandir(testOutputDIR):
+    os.remove(file.path)
 
 with torch.no_grad():
     checkpoint = torch.load(relayPATH)
-    
-    genM2P = model.Gen().to(DEVICE)
     genP2M = model.Gen().to(DEVICE)
-    genM2P.load_state_dict(checkpoint['State_dict'][0])
-    genP2M.load_state_dict(checkpoint['State_dict'][1])
-    
+    genP2M.load_state_dict(checkpoint['model_state'][1])
     genP2M.eval()
     
-    test_transforms = transforms.Compose([transforms.ToTensor(),
-                                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    test_dataset = dataset.imageDataset(None, testInputDIR, mode='Test')
+    test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle = False)
     
-    test_data = os.listdir(testInputDIR)
-    image_list = []
-    for i in test_data:
-        imagePhoto = Image.open(testInputDIR + "/" + i).convert('RGB')
-        imagePhoto = test_transforms(imagePhoto)
-        image_list.append(imagePhoto)
-    
-    Tensor = torch.cuda.FloatTensor if DEVICE == "cuda" else torch.FloatTensor
-    image_tensor = torch.stack(image_list, 0).type(Tensor)
-    fake_image_list = genP2M(image_tensor).detach().cpu()
-        
-    for i, fake_image in enumerate(fake_image_list):
-        img_arr = fake_image.squeeze().permute(1, 2, 0).numpy() * 255
-        img_arr = img_arr.astype(np.uint8)
-        
-        img = transforms.ToPILImage()(img_arr)
-        save_filename = testOutputDIR+"/"+test_data[i]
-        img.save(save_filename)
+    for i, P_imgs in enumerate(test_loader):
+        P_imgs = P_imgs.to(DEVICE)
+        fake_monet = genP2M(P_imgs).detach().cpu()
+        for j in range(min(batch_size, len(test_dataset)-i*batch_size)):
+            fake_monet_batch = fake_monet[j] / 2.0 + 0.5
+            save_image(fake_monet_batch, testOutputDIR + "/" + test_dataset.data_photo[i*batch_size+j])
+        if (i+1) % 1000 == 0:
+            print(f'{i+1} images finished')
+
+shutil.make_archive("./GAN/song/images", 'zip', testOutputDIR)

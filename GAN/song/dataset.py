@@ -7,30 +7,46 @@ import numpy as np
 
 
 class imageDataset(Dataset):
-    def __init__(self, monetDir, photoDir, randomSeed=777):
+    def __init__(self, monetDir, photoDir, randomSeed=777, mode='Train'):
         self.monet_dir = monetDir
         self.photo_dir = photoDir
-        self.data_monet = os.listdir(self.monet_dir)
-        self.data_monet.sort()
-        self.monet_len = len(self.data_monet)
+        self.mode = mode
+        
         self.data_photo = os.listdir(self.photo_dir)
-        self.data_photo.sort()
         self.photo_len = len(self.data_photo)
-        np.random.seed(randomSeed)
-        torch.manual_seed(randomSeed)
-        np.random.shuffle(self.data_photo)
-        self.transforms = transforms.Compose([transforms.ToTensor(),
-                                              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        
+        if self.mode == 'Train':
+            self.data_photo.sort()
+            self.data_monet = os.listdir(self.monet_dir)
+            self.data_monet.sort()
+            self.monet_len = len(self.data_monet)
+        
+            np.random.seed(randomSeed)
+            torch.manual_seed(randomSeed)
+            np.random.shuffle(self.data_photo)
+            self.transforms = transforms.Compose([transforms.RandomHorizontalFlip(p=0.5),
+                                                  transforms.RandomVerticalFlip(p=0.5),
+                                                  transforms.ToTensor(),
+                                                  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        else:
+            self.transforms = transforms.Compose([transforms.ToTensor(),
+                                                  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         
     def __len__(self):
-        return min(self.monet_len, self.photo_len)
+        if self.mode == 'Train':
+            return min(self.monet_len, self.photo_len)
+        else:
+            return self.photo_len
         
     def __getitem__(self, idx):
-        imageMonet = Image.open(self.monet_dir + "/" + self.data_monet[idx]).convert('RGB')
         imagePhoto = Image.open(self.photo_dir + "/" + self.data_photo[idx]).convert('RGB')
-        imageMonet = self.transforms(imageMonet)
         imagePhoto = self.transforms(imagePhoto)
-        return imageMonet, imagePhoto
+        if self.mode == 'Train':
+            imageMonet = Image.open(self.monet_dir + "/" + self.data_monet[idx]).convert('RGB')
+            imageMonet = self.transforms(imageMonet)    
+            return imageMonet, imagePhoto
+        else:
+            return imagePhoto
 
 
 if __name__ == "__main__":

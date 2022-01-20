@@ -39,7 +39,7 @@ class Gen(nn.Module):
                          nn.ReLU(inplace=True)])
         model.extend([nn.ReflectionPad2d(3),
                       nn.Conv2d(64, 3, 7),
-                      nn.Tanh()])
+                      nn.Tanh()]) # image range 맞추려고?
         
         self.model = nn.Sequential(*model)
         
