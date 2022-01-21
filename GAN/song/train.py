@@ -19,9 +19,10 @@ lambda_weight = 10
 relay_learning = False
 monetDIR = "./GAN/dataset/monet_jpg"
 photoDIR = "./GAN/dataset/photo_jpg"
+checkDIR = "./GAN/song/checkpoints"
 
 if relay_learning:
-    relayPATH = "./GAN/song/checkpoints/" + os.listdir("./GAN/song/checkpoints")[-1]
+    relayPATH = checkDIR + "/" + os.listdir(checkDIR)[-1]
 
 genM2P = model.Gen().to(DEVICE).apply(model.initialize_weight)
 genP2M = model.Gen().to(DEVICE).apply(model.initialize_weight)
@@ -36,7 +37,7 @@ lr_scheduler_Gen = model.ConstantandLinearlyDecay(opGen, start_decay=100, total=
 lr_scheduler_DisM = model.ConstantandLinearlyDecay(opDisM, start_decay=100, total=n_epoches)
 lr_scheduler_DisP = model.ConstantandLinearlyDecay(opDisP, start_decay=100, total=n_epoches)
 
-train_dataset = dataset.imageDataset(monetDIR, photoDIR, 777)
+train_dataset = dataset.imageDataset(monetDIR, photoDIR, 777, mode='Train')
 train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
 
 adv_loss_func = nn.MSELoss().to(DEVICE)
@@ -45,21 +46,30 @@ id_loss_func = nn.L1Loss().to(DEVICE)
 
 if relay_learning:
     checkpoint = torch.load(relayPATH)
-    genM2P.load_state_dict(checkpoint['State_dict'][0])
-    genP2M.load_state_dict(checkpoint['State_dict'][1])
-    disM.load_state_dict(checkpoint['State_dict'][2])
-    disP.load_state_dict(checkpoint['State_dict'][3])
+    genM2P.load_state_dict(checkpoint['model_state'][0])
+    genP2M.load_state_dict(checkpoint['model_state'][1])
+    disM.load_state_dict(checkpoint['model_state'][2])
+    disP.load_state_dict(checkpoint['model_state'][3])
     
-    opGen.load_state_dict(checkpoint['optimizer'][0])
-    opDisM.load_state_dict(checkpoint['optimizer'][1])
-    opDisP.load_state_dict(checkpoint['optimizer'][2])
+    opGen.load_state_dict(checkpoint['optimizer_state'][0])
+    opDisM.load_state_dict(checkpoint['optimizer_state'][1])
+    opDisP.load_state_dict(checkpoint['optimizer_state'][2])
     
-    start_epoch = checkpoint['Epoch'] + 1
+    lr_scheduler_Gen.load_state_dict(checkpoint['scheduler_state'][0])
+    lr_scheduler_DisM.load_state_dict(checkpoint['scheduler_state'][1])
+    lr_scheduler_DisP.load_state_dict(checkpoint['scheduler_state'][2])
+    
+    start_epoch = checkpoint['epoch'] + 1
     
 Tensor = torch.cuda.FloatTensor if DEVICE == "cuda" else torch.FloatTensor
 out_shape = [batch_size, 1, 16, 16]
 ones = torch.ones(out_shape).type(Tensor)
 zeros = torch.ones(out_shape).type(Tensor)
+
+global_step = 0
+gen_loss_list = []
+M_dis_loss_list = []
+P_dis_loss_list = []
 
 for epoch in range(start_epoch, n_epoches):
     genM2P.train()
@@ -69,7 +79,7 @@ for epoch in range(start_epoch, n_epoches):
     
     summary.add_scalar('lr_scheduler', lr_scheduler_Gen.get_last_lr()[0], epoch)
     
-    for iter, (M_imgs, P_imgs) in enumerate(train_loader):
+    for M_imgs, P_imgs in train_loader:
         torch.cuda.empty_cache()
         M_imgs = M_imgs.to(DEVICE)
         P_imgs = P_imgs.to(DEVICE)
@@ -126,21 +136,30 @@ for epoch in range(start_epoch, n_epoches):
         P_dis_loss.backward()
         opDisP.step()
         
-        if iter % 20 == 0 and summary is not None:
-            summary.add_scalar('Generator loss', gen_loss.item(), iter)
+        if global_step % 20 == 0 and summary is not None:
+            summary.add_scalar('Generator loss', gen_loss.item(), global_step)
             summary.add_scalars('Discriminator loss',
                                 {'DiscriminatorM loss' : M_dis_loss.item(),
                                  'DiscriminatorP loss' : P_dis_loss.item()},
-                                iter)
-            print(f'[Epoch {epoch+1}/{n_epoches}, Iteraton {iter}]')
-            print(f'[Generator loss: {gen_loss.item()} | identity: {id_loss.item()} adversarial: {adv_loss.item()} cycle: {cyc_loss.item()}]')
-            print(f'[DiscriminatorM loss: {M_dis_loss.item()} | DiscriminatorP loss : {P_dis_loss.item()}]')
+                                global_step)
         
+        global_step += 1
         
     lr_scheduler_Gen.step()
     lr_scheduler_DisM.step()
     lr_scheduler_DisP.step()
     
-    for file in os.scandir("./GAN/song/checkpoints"):
+    for file in os.scandir(checkDIR):
         os.remove(file.path)
-    util.save_checkpoint(epoch, [genM2P, genP2M, disM, disP], [opGen, opDisM, opDisP], "./GAN/song/checkpoints/model_epoch_{}.pt".format(epoch+1))
+    util.save_checkpoint(epoch, [genM2P, genP2M, disM, disP], [opGen, opDisM, opDisP], [lr_scheduler_Gen, lr_scheduler_DisM, lr_scheduler_DisP], checkDIR + "/model_epoch_{}.pt".format(epoch+1))
+    
+    print(f'[Epoch {epoch+1}/{n_epoches}]')
+    print(f'[Generator loss: {gen_loss.item()} | identity: {id_loss.item()} adversarial: {adv_loss.item()} cycle: {cyc_loss.item()}]')
+    print(f'[DiscriminatorM loss: {M_dis_loss.item()} | DiscriminatorP loss : {P_dis_loss.item()}]')
+    print()
+    gen_loss_list.append(gen_loss.item())
+    M_dis_loss_list.append(M_dis_loss.item())
+    P_dis_loss_list.append(P_dis_loss.item())
+    util.sample_images(genM2P, genP2M, M_imgs, P_imgs, DEVICE, figside=1.5)
+    
+util.loss_graph(gen_loss_list, M_dis_loss_list, P_dis_loss_list)
