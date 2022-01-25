@@ -4,21 +4,23 @@
 [![Issues](https://img.shields.io/github/issues/taehokimmm/ML101.svg)](https://github.com/taehokimmm/ML101/issues?style=flat)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Ftaehokimmm%2FML101&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
-김태호와 송관형의 다사다난할(?) 기계학습 입문용 리포입니다.  
+김태호와 송관형의 다사다난한 기계학습 입문용 리포입니다.  
 
 ## Objectives
 
 The objective of this repo is several-fold.  
 * Learning the basics of Machine Learning through real-world competitions and datasets
-* Getting used to Version Control via git, especially when multiple people contribute simulataneously
+* Reviewing and implementing ML papers from top conferences
+* Getting used to Version Control via git, especially when multiple people contribute the same file simulataneously
 * Handling the 2021-2022 winter break like a real pro  
 
 
 ## Goals
 
-We have done / will do several ML projects and competitions.
+We have done / will do several ML projects and competitions during the winter break.
 
-- [ ] Kaggle [GAN-Getting-Started](https://www.kaggle.com/c/gan-getting-started/overview)
+- [x] Kaggle [GAN-Getting-Started](https://www.kaggle.com/c/gan-getting-started/overview) - [CycleGAN](https://arxiv.org/pdf/1703.10593.pdf)
+- [ ] [Tacotron 2](https://github.com/NVIDIA/tacotron2)
 
 
 ## Contributors
