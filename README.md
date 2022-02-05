@@ -19,8 +19,12 @@ The objective of this repo is several-fold.
 
 We have done / will do several ML projects and competitions during the winter break.
 
-- [x] Kaggle [GAN-Getting-Started](https://www.kaggle.com/c/gan-getting-started/overview) - [CycleGAN](https://arxiv.org/pdf/1703.10593.pdf)
-- [ ] [Tacotron 2](https://github.com/NVIDIA/tacotron2)
+- [x] Kaggle [GAN-Getting-Started](https://www.kaggle.com/c/gan-getting-started/overview) w/ [CycleGAN](https://arxiv.org/pdf/1703.10593.pdf) and its previous researches
+  - [x] [GAN](https://arxiv.org/pdf/1406.2661.pdf)
+  - [x] [ResNet](https://arxiv.org/pdf/1512.03385.pdf)
+- [ ] [Tacotron 2](https://arxiv.org/pdf/1712.05884.pdf) and its previous researches
+  - [ ] [Transformer](https://arxiv.org/pdf/1706.03762.pdf)
+  - [ ] [WaveNet](https://arxiv.org/pdf/1609.03499.pdf)
 
 
 ## Contributors
